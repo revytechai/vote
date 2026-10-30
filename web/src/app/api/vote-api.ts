@@ -166,15 +166,15 @@ interface MockSubmissionRecord {
 export class MockVoteApi extends VoteApi {
   private readonly event: VoteEvent = {
     slug: 'hackathon-2026',
-    name: 'REVYTECH Hackathon 2026',
-    tagline: 'Two days, one weekend, four very good ideas.',
+    name: 'OpenZFS Hackathon',
+    tagline: 'Build, break and benchmark OpenZFS — then vote on the best hack.',
     description:
       'Every team ships something real in 36 hours. Judging runs on STAR: judges score every ' +
       'submission from 0 to 5, the two best projects go to a runoff, and the crowd gets to watch ' +
       'the scores land live.',
     startsAt: '2026-03-14T09:00:00.000Z',
     endsAt: '2026-03-16T18:00:00.000Z',
-    location: 'REVYTECH HQ, Miami, Florida — and online',
+    location: 'Online and in person — hosted by REVYTECH',
     status: 'voting',
   };
 
@@ -287,7 +287,7 @@ export class MockVoteApi extends VoteApi {
       id: 1,
       name: 'Grand Prize — Best Overall Hack',
       description: 'The project the judges would still want to run on Monday morning.',
-      winnerSubmissionId: 2,
+      winnerSubmissionId: 1,
     },
     {
       id: 2,

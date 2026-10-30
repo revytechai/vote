@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, distinctUntilChanged, EMPTY, map, of, switchMap, tap } from 'rxjs';
 
 import { VoteApi } from '../api/vote-api';
-import { Result } from '../api/models';
+import { Prize, Result } from '../api/models';
 
 /** Live results: score bars, the runoff and the winner. */
 @Component({
@@ -13,7 +13,7 @@ import { Result } from '../api/models';
   template: `
     <section class="page" data-testid="results-page">
       <header class="page-head">
-        <p class="eyebrow">Live results</p>
+        <p class="eyebrow">OpenZFS Hackathon · Live results</p>
         <h1 data-testid="results-title">How the projects scored</h1>
         <p class="tagline">
           Scores land as ballots arrive. The two best totals go to a runoff, and the runoff picks the
@@ -40,16 +40,22 @@ import { Result } from '../api/models';
             {{ result.final ? 'Winner' : 'Leading' }}: {{ titleFor(result, winner) }}
           </p>
         }
-        <p class="muted" data-testid="results-ballots">{{ result.ballots }} ballots counted.</p>
+        <p class="muted" data-testid="results-ballots">
+          {{ result.ballots }} {{ result.ballots === 1 ? 'ballot' : 'ballots' }} counted ·
+          {{ result.final ? 'Final results' : 'Voting is open' }}
+        </p>
 
         <div class="card">
           <h2>Score phase</h2>
+          @if (result.rows.length === 0) {
+            <p class="muted" data-testid="results-empty">No scores yet. They will appear here as ballots arrive.</p>
+          }
           <div class="stack">
             @for (row of result.rows; track row.submission_id) {
               <div class="score-row" data-testid="score-row">
                 <div class="score-label">
                   <strong>#{{ row.rank }} {{ row.title }}</strong>
-                  <span class="muted">{{ row.total }} points · average {{ row.mean }}</span>
+                  <span class="muted">{{ row.total }} points · average {{ row.mean }} / 5</span>
                 </div>
                 <div class="score-track">
                   <div
@@ -82,7 +88,33 @@ import { Result } from '../api/models';
               @if (runoff.tiebreak) { Tiebreak: {{ runoff.tiebreak }}. }
             </p>
           </div>
+        } @else if (result.rows.length > 0) {
+          <div class="card">
+            <h2>Runoff</h2>
+            <p class="muted" data-testid="runoff-empty">The runoff between the top two starts once enough ballots are in.</p>
+          </div>
         }
+
+        <div class="card" data-testid="results-prizes">
+          <h2>Prizes and winners</h2>
+          @if (prizes().length === 0) {
+            <p class="muted" data-testid="results-prizes-empty">Prizes will be announced soon.</p>
+          } @else {
+            <ul class="entry-list">
+              @for (prize of prizes(); track prize.id) {
+                <li class="entry" data-testid="results-prize">
+                  <span class="entry-title">{{ prize.name }}</span>
+                  <p class="entry-summary">{{ prize.description }}</p>
+                  @if (prize.winnerSubmissionId) {
+                    <p class="pill" data-testid="results-prize-winner">Won by {{ titleFor(result, prize.winnerSubmissionId) }}</p>
+                  } @else {
+                    <p class="pill pill-muted">Not awarded yet</p>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
 
         <div class="form-actions">
           <a class="button button-secondary" [routerLink]="['/e', slug(), 'prizes']" data-testid="results-link-prizes">
@@ -116,6 +148,14 @@ export class ResultsPage {
 
   readonly slug = toSignal(this.slug$, { initialValue: 'hackathon-2026' });
   readonly round = toSignal(this.round$, { initialValue: null });
+  /** Prizes from the API; winners are whatever the API reports (never computed here). */
+  readonly prizes = toSignal(
+    this.slug$.pipe(
+      switchMap((slug) => this.api.listPrizes(slug)),
+      catchError(() => of([] as Prize[])),
+    ),
+    { initialValue: [] as Prize[] },
+  );
 
   /** Latest results pushed by the live stream. */
   readonly results = signal<Result | null>(null);

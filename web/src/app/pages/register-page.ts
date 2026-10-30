@@ -15,7 +15,7 @@ import { VoteApi } from '../api/vote-api';
     <section class="page" data-testid="register-page">
       <header class="page-head">
         <p class="eyebrow">Register</p>
-        <h1 data-testid="register-title">Come to the hackathon</h1>
+        <h1 data-testid="register-title">Come to the OpenZFS Hackathon</h1>
         <p class="tagline">Tell us who you are. We only use this to send you the invite code.</p>
       </header>
 
