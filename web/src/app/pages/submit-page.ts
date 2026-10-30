@@ -28,7 +28,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
   template: `
     <section class="page" data-testid="submit-page">
       <header class="page-head">
-        <p class="eyebrow">Submit</p>
+        <p class="eyebrow">$ git push origin hack</p>
         <h1 data-testid="submit-title-heading">Put your hack on the ballot</h1>
         <p class="tagline">Tell the judges what you built, and link them to it.</p>
       </header>

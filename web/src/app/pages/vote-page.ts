@@ -7,14 +7,14 @@ import { catchError, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { MOCK_INVITE_CODE, VoteApi } from '../api/vote-api';
 import { Submission } from '../api/models';
 
-/** STAR ballot: score every submission from 0 to 5, then send it in. */
+/** $ ./vote --star: score every submission from 0 to 5, then send it in. */
 @Component({
   selector: 'app-vote-page',
   imports: [ReactiveFormsModule, RouterLink],
   template: `
     <section class="page" data-testid="vote-page">
       <header class="page-head">
-        <p class="eyebrow">STAR ballot</p>
+        <p class="eyebrow">$ ./vote --star</p>
         <h1 data-testid="vote-title">Score the projects</h1>
         <p class="tagline">
           Give every project a score from 0 to 5. The two best totals go to a runoff, and the runoff

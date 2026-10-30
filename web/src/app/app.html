@@ -4,7 +4,15 @@
   <div class="header-bar">
     <a class="brand" routerLink="/e/hackathon-2026" data-testid="brand-link">
       <span class="brand-mark" aria-hidden="true">Z</span>
-      <span class="brand-name">OpenZFS Hackathon</span>
+      <span class="brand-text">
+        <span class="brand-name">OpenZFS Hackathon</span>
+        <span class="brand-prompt" data-testid="brand-prompt"
+          ><span class="prompt-user">root@zpool</span>:<span class="prompt-path">~</span>$ ./vote<span
+            class="cursor"
+            aria-hidden="true"
+          ></span
+        ></span>
+      </span>
     </a>
 
     <button
@@ -89,6 +97,15 @@
   <router-outlet />
 </main>
 
-<footer class="site-footer">
+<footer class="site-footer" data-testid="site-footer">
+  <pre class="pool-art" aria-hidden="true">
+  pool: hackathon   state: ONLINE
+  NAME          STATE   READ WRITE CKSUM
+  hackathon     ONLINE     0     0     0
+    raidz2-0    ONLINE     0     0     0
+      hackers   ONLINE     0     0     0
+      votes     ONLINE     0     0     0
+errors: No known data errors</pre>
   <p>OpenZFS Hackathon — public voting site. Powered by REVYTECH.</p>
+  <p class="footer-sig"><span class="prompt-sym" aria-hidden="true">#</span> Hack the planet. Checksum everything.</p>
 </footer>

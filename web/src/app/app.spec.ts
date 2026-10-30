@@ -24,4 +24,20 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('[data-testid="brand-link"]')?.textContent).toContain('OpenZFS Hackathon');
   });
+
+  it('should render the terminal prompt motif in the header', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('[data-testid="brand-prompt"]')?.textContent).toContain('./vote');
+  });
+
+  it('should nod to hacker culture in the footer', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const footer = compiled.querySelector('[data-testid="site-footer"]')?.textContent ?? '';
+    expect(footer).toContain('Hack the planet');
+    expect(footer).toContain('Powered by REVYTECH');
+  });
 });

@@ -14,7 +14,7 @@ import { Submission } from '../api/models';
   template: `
     <section class="page" data-testid="prizes-page">
       <header class="page-head">
-        <p class="eyebrow">Prizes</p>
+        <p class="eyebrow">$ cat /etc/prizes</p>
         <h1 data-testid="prizes-title">What is on the table</h1>
         <p class="tagline">Every prize on the table, and who took it home.</p>
       </header>

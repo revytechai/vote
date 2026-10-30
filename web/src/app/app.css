@@ -22,8 +22,8 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: rgba(8, 20, 42, 0.97);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .header-bar {
@@ -53,10 +53,12 @@
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 9px;
-  background: var(--brand);
-  color: #fff;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--brand);
   font-size: 1rem;
+  border: 2px solid var(--brand);
+  font-family: var(--mono);
 }
 
 .nav-toggle {
@@ -106,7 +108,9 @@
   border-radius: var(--radius);
   color: var(--ink-soft);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
+  font-family: var(--mono);
+  font-size: 0.875rem;
 }
 
 .primary-nav a:hover {
@@ -117,6 +121,7 @@
 .primary-nav a.is-active {
   background: var(--brand-soft);
   color: var(--brand-ink);
+  box-shadow: inset 0 -2px 0 var(--brand);
 }
 
 .header-utility {
@@ -211,4 +216,37 @@
     width: auto;
     flex: 1 1 auto;
   }
+}
+
+.brand-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-prompt {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.prompt-user {
+  color: var(--success);
+}
+
+.prompt-path {
+  color: var(--accent-blue);
+  filter: brightness(1.35);
+}
+
+.primary-nav a.is-active::before {
+  content: '>';
+  margin-right: 0.35em;
+}
+
+.nav-toggle,
+.signin input {
+  background: var(--surface-sunken);
+  font-family: var(--mono);
 }

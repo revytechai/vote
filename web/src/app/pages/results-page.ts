@@ -13,7 +13,7 @@ import { Prize, Result } from '../api/models';
   template: `
     <section class="page" data-testid="results-page">
       <header class="page-head">
-        <p class="eyebrow">OpenZFS Hackathon · Live results</p>
+        <p class="eyebrow">$ zpool status --live</p>
         <h1 data-testid="results-title">How the projects scored</h1>
         <p class="tagline">
           Scores land as ballots arrive. The two best totals go to a runoff, and the runoff picks the

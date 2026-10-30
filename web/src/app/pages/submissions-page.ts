@@ -13,7 +13,7 @@ import { VoteApi } from '../api/vote-api';
   template: `
     <section class="page" data-testid="submissions-page">
       <header class="page-head">
-        <p class="eyebrow">Submissions</p>
+        <p class="eyebrow">$ ls -la ./submissions</p>
         <h1 data-testid="submissions-title">What the teams built</h1>
         <p class="tagline">
           Only approved submissions are listed. Open one to watch the demo and read the write-up.
