@@ -1,0 +1,10 @@
+$ cat /tmp/invalid-config.json
+{
+  "host": "127.0.0.1",
+  "port": 99999,
+  "unknown_prop": "rejected"
+}
+$ node api/dist/main.js --config /tmp/invalid-config.json --check-config
+Unknown configuration key(s): 'unknown_prop'. Allowed keys are: host, port, log_level, database_url_env, cookie_secure, trusted_proxy. Secrets must stay in environment variables.
+$ echo $?
+1

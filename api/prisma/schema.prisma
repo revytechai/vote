@@ -1,0 +1,202 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  Int        @id @default(autoincrement())
+  handle              String     @unique
+  email               String     @unique
+  passwordHash        String?
+  failedLoginAttempts Int        @default(0)
+  lockoutUntil        DateTime?
+  lastLoginAttempt    DateTime?
+  teamId              Int?
+  team                Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  roles               UserRole[]
+  sessions            Session[]
+  submissions         Submission[]
+}
+
+model UserRole {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   String
+
+  @@unique([userId, role])
+}
+
+model Team {
+  id          Int          @id @default(autoincrement())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  members     User[]
+  submissions Submission[]
+}
+
+model Session {
+  id             String    @id
+  userId         Int?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ballotCodeHash String?
+  eventId        Int?
+  data           String?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+}
+
+model Event {
+  id               Int          @id @default(autoincrement())
+  slug             String       @unique
+  title            String
+  description      String
+  proposalsOpen    Boolean      @default(true)
+  registrationOpen Boolean      @default(true)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  ideas            Idea[]
+  rounds           Round[]
+  submissions      Submission[]
+  inviteCodes      InviteCode[]
+  prizes           Prize[]
+}
+
+model Idea {
+  id          Int          @id @default(autoincrement())
+  eventId     Int
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title       String
+  proposer    String
+  description String
+  link        String
+  votePoints  Int?
+  presNo      String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  submissions Submission[]
+}
+
+model Round {
+  id             Int          @id @default(autoincrement())
+  eventId        Int
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name           String
+  category       String?
+  method         String       @default("star")
+  status         String       @default("draft")
+  resultsVisible Boolean      @default(false)
+  maxScore       Int          @default(5)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  ballots        Ballot[]
+  prizes         Prize[]
+}
+
+model Submission {
+  id          Int          @id @default(autoincrement())
+  eventId     Int
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String
+  teamId      Int?
+  team        Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId      Int?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ideaId      Int?
+  idea        Idea?        @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  status      String       @default("pending")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  artifacts   Artifact[]
+  ballotVotes BallotVote[]
+  prizeAwards PrizeAward[]
+}
+
+model Artifact {
+  id           Int        @id @default(autoincrement())
+  submissionId Int
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  kind         String
+  url          String
+  label        String?
+  createdAt    DateTime   @default(now())
+}
+
+model InviteCode {
+  id        Int       @id @default(autoincrement())
+  eventId   Int
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  revoked   Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Ballot {
+  id        Int          @id @default(autoincrement())
+  roundId   Int
+  round     Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  codeHash  String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  votes     BallotVote[]
+
+  @@unique([roundId, codeHash])
+}
+
+model BallotVote {
+  id           Int        @id @default(autoincrement())
+  ballotId     Int
+  ballot       Ballot     @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  submissionId Int
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  score        Int
+
+  @@unique([ballotId, submissionId])
+}
+
+model Prize {
+  id          Int          @id @default(autoincrement())
+  eventId     Int
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roundId     Int?
+  round       Round?       @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  name        String
+  sponsor     String
+  description String
+  quantity    Int          @default(1)
+  category    String
+  eligibility String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  awards      PrizeAward[]
+}
+
+model PrizeAward {
+  id           Int        @id @default(autoincrement())
+  prizeId      Int
+  prize        Prize      @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  submissionId Int
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([prizeId, submissionId])
+}

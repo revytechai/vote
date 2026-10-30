@@ -1,0 +1,4 @@
+$ node api/dist/main.js --config api/config.example.json --check-config
+Configuration at api/config.example.json is valid.
+$ echo $?
+0

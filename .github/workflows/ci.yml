@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build & Test (Node 22, SQLite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm -C packages/tally build
+
+      - name: Deploy Prisma Migrations (SQLite)
+        run: |
+          cd api
+          DATABASE_URL="file:./dev.db" npx prisma migrate deploy
+
+      - name: Run all workspace tests
+        run: pnpm -r test
+
+      - name: Build API
+        run: pnpm -C api build
+
+      - name: Smoke test the compiled API
+        run: ./scripts/smoke.sh
+
+  db-matrix:
+    name: Database Matrix (PostgreSQL 17 & MariaDB 11)
+    runs-on: ubuntu-latest
+
+    # The service containers are ephemeral and throwaway. They are configured
+    # with trust / empty-password authentication so that no credential is ever
+    # written into this repository. Real deployments must use a real secret
+    # supplied through the environment (see docs/DATABASE.md).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: revy
+          POSTGRES_DB: revyvote
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 1
+          MARIADB_DATABASE: revyvote
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm -C packages/tally build
+
+      - name: Test against PostgreSQL 17
+        env:
+          DATABASE_URL: "postgresql://revy@localhost:5432/revyvote?schema=public"
+        run: ./scripts/db-matrix.sh postgres
+
+      - name: Test against MariaDB 11
+        env:
+          DATABASE_URL: "mysql://root@localhost:3306/revyvote"
+        run: ./scripts/db-matrix.sh mariadb

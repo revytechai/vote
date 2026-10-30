@@ -1,0 +1,14 @@
+$ DATABASE_URL="file:/tmp/doctor-test.db" node api/dist/main.js --config api/config.example.json doctor --json
+{
+  "version": "0.1.0",
+  "config_path": "api/config.example.json",
+  "configPath": "api/config.example.json",
+  "config_valid": true,
+  "configValid": true,
+  "node_version": "v24.18.0",
+  "nodeVersion": "v24.18.0",
+  "database_reachable": true,
+  "databaseReachable": true
+}
+$ echo $?
+0

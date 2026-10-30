@@ -1,0 +1,94 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header" data-testid="site-header">
+  <div class="header-bar">
+    <a class="brand" routerLink="/e/hackathon-2026" data-testid="brand-link">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <span class="brand-name">REVYTECH Vote</span>
+    </a>
+
+    <button
+      type="button"
+      class="nav-toggle"
+      (click)="toggleMenu()"
+      [attr.aria-expanded]="menuOpen()"
+      aria-controls="primary-nav"
+      data-testid="menu-toggle"
+    >
+      <span class="nav-toggle-bars" aria-hidden="true"></span>
+      <span class="nav-toggle-label">Menu</span>
+    </button>
+
+    <nav id="primary-nav" class="primary-nav" [class.is-open]="menuOpen()" aria-label="Primary">
+      <a
+        routerLink="/e/hackathon-2026"
+        routerLinkActive="is-active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        data-testid="nav-event"
+        >Event</a
+      >
+      <a routerLink="/e/hackathon-2026/submissions" routerLinkActive="is-active" data-testid="nav-submissions"
+        >Submissions</a
+      >
+      <a routerLink="/e/hackathon-2026/vote" routerLinkActive="is-active" data-testid="nav-vote">Vote</a>
+      <a routerLink="/e/hackathon-2026/results" routerLinkActive="is-active" data-testid="nav-results"
+        >Results</a
+      >
+      <a routerLink="/e/hackathon-2026/prizes" routerLinkActive="is-active" data-testid="nav-prizes">Prizes</a>
+      <a routerLink="/e/hackathon-2026/register" routerLinkActive="is-active" data-testid="nav-register"
+        >Register</a
+      >
+      <a routerLink="/e/hackathon-2026/submit" routerLinkActive="is-active" data-testid="nav-submit"
+        >Submit</a
+      >
+      <a routerLink="/s/1" routerLinkActive="is-active" data-testid="nav-submission-detail">Submission detail</a>
+    </nav>
+  </div>
+
+  <div class="header-utility">
+    @if (user(); as signedIn) {
+      <p class="signed-in" data-testid="signed-in-user">
+        Signed in as <strong>{{ signedIn.name }}</strong>
+        <span class="role-badge">{{ signedIn.role }}</span>
+      </p>
+      <button type="button" class="button button-quiet" (click)="signOut()" data-testid="signout-button">
+        Sign out
+      </button>
+    } @else {
+      <form class="signin" [formGroup]="signInForm" (ngSubmit)="signIn()" data-testid="signin-form">
+        <label class="signin-field">
+          <span class="signin-label">Name</span>
+          <input
+            type="text"
+            formControlName="name"
+            autocomplete="name"
+            placeholder="Ada Lovelace"
+            data-testid="signin-name"
+          />
+        </label>
+        <label class="signin-field">
+          <span class="signin-label">Access code</span>
+          <input
+            type="password"
+            formControlName="code"
+            autocomplete="one-time-code"
+            placeholder="Access code"
+            data-testid="signin-code"
+          />
+        </label>
+        <button type="submit" class="button button-secondary" data-testid="signin-submit">Sign in</button>
+      </form>
+    }
+    @if (signInError(); as message) {
+      <p class="inline-error" role="alert" data-testid="signin-error">{{ message }}</p>
+    }
+  </div>
+</header>
+
+<main id="main-content" class="site-main">
+  <router-outlet />
+</main>
+
+<footer class="site-footer">
+  <p>REVYTECH Hackathon — public voting site.</p>
+</footer>

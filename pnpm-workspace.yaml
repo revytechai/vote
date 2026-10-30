@@ -1,0 +1,4 @@
+packages:
+  - api
+  - packages/*
+# web/ is the Angular SPA, built with npm (see web/README.md)

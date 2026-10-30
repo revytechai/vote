@@ -1,0 +1,19 @@
+Demonstration of SIGHUP dynamic config reload:
+1. Boot server with initial config (port 49152, log_level info).
+2. Modify config file: change log_level to debug, change port to 49153.
+3. Send SIGHUP: server live-applies debug log_level and logs warning that host/port change requires restart.
+4. Modify config file with invalid JSON syntax.
+5. Send SIGHUP: server catches error, logs descriptive error, and retains existing valid configuration without crashing.
+
+Server log output:
+[Nest] 432978  - 10/30/2026, 1:42:50 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 432978  - 10/30/2026, 1:42:50 PM     LOG [NestApplication] Nest application successfully started +9ms
+revytechai-vote API listening on 127.0.0.1:49152 (prefix /api/v1)
+[Nest] 432978  - 10/30/2026, 1:42:52 PM     LOG [ConfigReloader] Received SIGHUP, reloading configuration...
+[Nest] 432978  - 10/30/2026, 1:42:52 PM    WARN [ConfigReloader] Configuration host/port changed (127.0.0.1:49152 -> 127.0.0.1:49153). A server restart is required for host and port changes to take effect.
+[Nest] 432978  - 10/30/2026, 1:42:52 PM     LOG [ConfigReloader] Live-updating log level: info -> debug
+[Nest] 432978  - 10/30/2026, 1:42:53 PM     LOG [ConfigReloader] Received SIGHUP, reloading configuration...
+[Nest] 432978  - 10/30/2026, 1:42:53 PM   ERROR [ConfigReloader] Failed to reload configuration from /tmp/sighup-demo.json: Invalid JSON syntax (comments and trailing commas are not allowed): Expected double-quoted property name in JSON at position 27 (line 3 column 3). Retaining existing configuration.
+
+Status check:
+Server is running smoothly (PID still active, process did not crash).

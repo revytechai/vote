@@ -1,0 +1,732 @@
+openapi: 3.1.0
+info:
+  title: revytechai-vote API
+  version: 0.1.0
+  description: |
+    Public + participant + admin JSON API for vote.revytechinc.ai. Base path /api/v1.
+    Backend: NestJS 10+ with Prisma ORM (TypeScript).
+    Auth:
+      - Cookie session named "rv_session" (httpOnly, Secure, SameSite=Lax).
+      - CSRF double-submit protection: cookie "rv_csrf" + header "X-CSRF-Token" required for unsafe methods (POST, PUT, PATCH, DELETE).
+      - Account lockout after 5 consecutive failed login attempts for 15 minutes.
+      - Passwords hashed with argon2 (argon2id).
+      - Optional OIDC authentication stub disabled unless OIDC_ISSUER is set.
+    Ballots authenticate with an invite code exchanged for a ballot session (POST /events/{slug}/join).
+    Privacy: Private login emails are strictly protected and never exposed publicly.
+servers:
+  - url: https://vote.revytechinc.ai/api/v1
+    description: Production API server
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: rv_session
+      description: Session cookie (httpOnly, Secure, SameSite=Lax)
+    csrfCookie:
+      type: apiKey
+      in: cookie
+      name: rv_csrf
+      description: Double-submit CSRF cookie (SameSite=Lax)
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF token header matching rv_csrf cookie on unsafe requests
+  schemas:
+    Method:
+      type: string
+      enum: [star, score, approval]
+    Role:
+      type: string
+      enum: [superuser, manager, sponsor, viewer, participant]
+    Event:
+      type: object
+      required: [slug, title]
+      properties:
+        slug: {type: string}
+        title: {type: string}
+        description: {type: string}
+        proposals_open: {type: boolean}
+        registration_open: {type: boolean}
+        starts_at: {type: [string, 'null'], format: date-time}
+        ends_at: {type: [string, 'null'], format: date-time}
+    Round:
+      type: object
+      required: [id, event, name, method, status]
+      properties:
+        id: {type: integer}
+        event: {type: string}
+        name: {type: string}
+        category: {type: [string, 'null']}
+        method: {$ref: '#/components/schemas/Method'}
+        status: {type: string, enum: [draft, open, closed]}
+        results_visible: {type: boolean}
+        max_score: {type: integer, default: 5}
+    Idea:
+      type: object
+      required: [title]
+      properties:
+        id: {type: integer}
+        title: {type: string}
+        proposer: {type: string}
+        description: {type: string}
+        link: {type: string, format: uri}
+        vote_points: {type: [integer, 'null']}
+        pres_no: {type: [string, 'null']}
+    Artifact:
+      type: object
+      required: [kind, url]
+      properties:
+        kind: {type: string, enum: [repo, pr, demo, slides, other]}
+        url: {type: string, format: uri, pattern: '^https://'}
+        label: {type: string, description: optional; omitted when empty}
+    Team:
+      type: object
+      required: [id, name, members]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        members: {type: array, items: {type: string, description: handle only}}
+    Submission:
+      type: object
+      required: [id, title, status]
+      properties:
+        id: {type: integer}
+        title: {type: string}
+        summary: {type: string}
+        team: {oneOf: [{$ref: '#/components/schemas/Team'}, {type: 'null'}]}
+        idea_id: {type: [integer, 'null']}
+        artifacts: {type: array, items: {$ref: '#/components/schemas/Artifact'}}
+        status: {type: string, enum: [pending, approved, hidden, rejected], description: public endpoints return approved only}
+    Ballot:
+      type: object
+      required: [scores]
+      properties:
+        scores:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+          description: 'submission_id -> score (0..max_score); approval uses 0/1'
+    Result:
+      type: object
+      required: [round, method, ballots, rows, final]
+      properties:
+        round: {type: integer}
+        method: {$ref: '#/components/schemas/Method'}
+        ballots: {type: integer}
+        rows:
+          type: array
+          items:
+            type: object
+            required: [submission_id, title, total, mean, rank]
+            properties:
+              submission_id: {type: integer}
+              title: {type: string}
+              total: {type: number}
+              mean: {type: number}
+              rank: {type: integer}
+        runoff:
+          type: [object, 'null']
+          properties:
+            a: {type: integer}
+            b: {type: integer}
+            prefer_a: {type: integer}
+            prefer_b: {type: integer}
+            equal: {type: integer}
+            winner: {type: integer}
+            tiebreak: {type: string}
+        final: {type: boolean}
+    Prize:
+      type: object
+      required: [id, name, sponsor, quantity, category]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        sponsor: {type: string}
+        description: {type: string}
+        quantity: {type: integer, minimum: 1}
+        category: {type: string}
+        eligibility: {type: [string, 'null']}
+        round_id: {type: [integer, 'null']}
+        awards:
+          type: array
+          items:
+            type: object
+            properties:
+              submission_id: {type: integer}
+              title: {type: string}
+              team: {type: string}
+    Error:
+      type: object
+      description: NestJS default error body (an i18n error code field is planned).
+      required: [statusCode, message]
+      properties:
+        statusCode: {type: integer, example: 400}
+        message: {oneOf: [{type: string}, {type: array, items: {type: string}}]}
+        error: {type: string, example: Bad Request}
+    RegisterRequest:
+      type: object
+      required: [handle, email]
+      description: Public self-registration always creates a participant; any role field is ignored.
+      properties:
+        handle: {type: string, minLength: 3, description: public display handle}
+        email: {type: string, format: email, description: 'private login email, never returned'}
+        password: {type: string, description: optional}
+        teamName: {type: string, description: optional; creates a new team and joins it}
+    RegisterResponse:
+      type: object
+      required: [message, handle, roles, team]
+      properties:
+        message: {type: string, example: Registration successful}
+        handle: {type: string}
+        roles: {type: array, items: {$ref: '#/components/schemas/Role'}}
+        team: {$ref: '#/components/schemas/TeamRef'}
+    LoginRequest:
+      type: object
+      required: [login]
+      properties:
+        login: {type: string, description: handle or email}
+        password: {type: string}
+    TeamRef:
+      type: [object, 'null']
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+    Me:
+      type: object
+      required: [id, handle, roles, team]
+      properties:
+        id: {type: integer}
+        handle: {type: string}
+        roles: {type: array, items: {$ref: '#/components/schemas/Role'}}
+        team: {$ref: '#/components/schemas/TeamRef'}
+    CsrfToken:
+      type: object
+      required: [csrfToken]
+      properties:
+        csrfToken: {type: string, description: 'value of the rv_csrf cookie; empty string if not yet set. Send it back as X-CSRF-Token.'}
+    CreateTeamRequest:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1}
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+security: []  # default: public; protected operations declare their own security
+paths:
+  /api/health:
+    get:
+      summary: Health check endpoint
+      description: Returns 200 {"status":"ok"} when the service is healthy. Public, no DB write.
+      servers:
+        - url: https://vote.revytechinc.ai
+          description: Production server
+        - url: http://localhost:3000
+          description: Local development server
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthResponse'}
+  /events:
+    get:
+      summary: List public events
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Event'}
+  /events/{slug}:
+    get:
+      summary: Event detail
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Event'}
+        '404':
+          description: not found
+  /events/{slug}/ideas:
+    get:
+      summary: List ideas for event
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: ok
+    post:
+      summary: Propose idea (allowed if proposals_open is true)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Idea'}
+      responses:
+        '201': {description: created}
+        '403': {description: proposals closed}
+  /events/{slug}/rounds:
+    get:
+      summary: List rounds for event
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Round'}
+  /events/{slug}/submissions:
+    get:
+      summary: List approved submissions
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Submission'}
+    post:
+      summary: Create submission (participant session)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: created (status pending)}
+        '400': {description: invalid https link or validation failure}
+  /submissions/{id}:
+    get:
+      summary: Public submission detail (approved only; 404 otherwise; emails never included)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200': {description: ok, content: {application/json: {schema: {$ref: '#/components/schemas/Submission'}}}}
+        '404': {description: not found or not approved, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    patch:
+      summary: Edit own submission (participant session)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: ok}
+        '403': {description: not owner}
+  /events/{slug}/prizes:
+    get:
+      summary: Prizes and winners
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Prize'}
+  /events/{slug}/join:
+    post:
+      summary: Exchange invite code for ballot session (rate limited)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string}
+      responses:
+        '204': {description: ballot session set}
+        '403': {description: invalid or revoked code}
+        '429': {description: rate limited}
+  /rounds/{id}/ballot:
+    get:
+      summary: My current ballot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Ballot'}
+    put:
+      summary: Cast or replace ballot (one per code per round, replaceable until round close)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Ballot'}
+      responses:
+        '204': {description: saved}
+        '409': {description: round closed}
+  /rounds/{id}/results:
+    get:
+      summary: Round results (403 if hidden unless results_visible or closed)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Result'}
+        '403': {description: results hidden}
+  /rounds/{id}/results/stream:
+    get:
+      summary: SSE stream of Result on change (403 if results hidden)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200': {description: text/event-stream}
+        '403': {description: results hidden}
+  /auth/register:
+    post:
+      summary: Participant register (handle, email, optional password and team)
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RegisterRequest'}}}}
+      responses:
+        '201': {description: created, content: {application/json: {schema: {$ref: '#/components/schemas/RegisterResponse'}}}}
+        '400': {description: invalid handle or email, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '409': {description: handle or email conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/login:
+    post:
+      summary: Login (participant or staff; lockout after 5 failures for 15 min)
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LoginRequest'}}}}
+      responses:
+        '204': {description: 'session cookie set (rv_session, httpOnly, SameSite=Lax)'}
+        '401': {description: invalid credentials}
+        '429': {description: locked out}
+  /auth/logout:
+    post:
+      summary: Logout
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      responses:
+        '204': {description: session cleared}
+  /auth/me:
+    get:
+      summary: Current user and roles (superuser|manager|sponsor|viewer|participant; email never exposed)
+      security:
+        - session: []
+      responses:
+        '200': {description: current user profile, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '401': {description: unauthenticated}
+  /auth/csrf:
+    get:
+      summary: Get current CSRF token
+      responses:
+        '200': {description: token returned, content: {application/json: {schema: {$ref: '#/components/schemas/CsrfToken'}}}}
+  /auth/oidc/login:
+    get:
+      summary: Optional OIDC login stub (404 unless OIDC_ISSUER is set)
+  /auth/oidc/callback:
+    get:
+      summary: Optional OIDC callback stub (404 unless OIDC_ISSUER is set)
+  /teams:
+    post:
+      summary: Create team
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateTeamRequest'}}}}
+      responses:
+        '201': {description: team created; caller becomes a member, content: {application/json: {schema: {$ref: '#/components/schemas/Team'}}}}
+        '400': {description: name missing, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /teams/{id}/members:
+    post:
+      summary: Add member by handle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: member added}
+  /admin/events:
+    get:
+      summary: Admin list events
+      security:
+        - session: []
+      responses:
+        '200': {description: ok}
+    post:
+      summary: Create event
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: created}
+  /admin/events/{slug}:
+    patch:
+      summary: Update event
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: ok}
+    delete:
+      summary: Delete event
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: deleted}
+  /admin/events/{slug}/import-csv:
+    post:
+      summary: Import CSV of ideas (tolerant headers title,proposer,description,link,vote_points,pres_no)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: ideas imported}
+  /admin/events/{slug}/rounds:
+    post:
+      summary: Create round
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: created}
+  /admin/rounds/{id}:
+    patch:
+      summary: Update round (method, status, results_visible, max_score)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: updated}
+  /admin/events/{slug}/codes:
+    post:
+      summary: Generate N codes (plaintext returned once, sha256 stored)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: plaintext codes returned}
+    get:
+      summary: List codes (hashed, used/revoked)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+      responses:
+        '200': {description: ok}
+  /admin/codes/{id}/revoke:
+    post:
+      summary: Revoke invite code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: revoked}
+  /admin/submissions/{id}/moderate:
+    post:
+      summary: Moderate submission (status pending|approved|hidden|rejected)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': {description: ok}
+  /admin/events/{slug}/prizes:
+    post:
+      summary: Register prize (admin or sponsor)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: created}
+  /admin/prizes/{id}/awards:
+    get:
+      summary: Suggested winners from linked round tally
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+      responses:
+        '200': {description: ok}
+    post:
+      summary: Award prize to submission (quantity limit enforced)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+          csrfCookie: []
+          csrfHeader: []
+      responses:
+        '201': {description: awarded}
+        '400': {description: quantity limit reached}
+  /admin/rounds/{id}/export.csv:
+    get:
+      summary: Export results as CSV
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security:
+        - session: []
+      responses:
+        '200':
+          description: ok
+          content:
+            text/csv:
+              schema: {type: string}
