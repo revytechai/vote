@@ -67,3 +67,15 @@ A full 5-voice review of the tip is owed; see `REVIEW-DEBT.md`.
 8. rc.d service script and mdoc man page.
 9. `/` is the REVYTECH login page; public results at `/results`.
 10. The owed full review completed and recorded in `REVIEW-DEBT.md`.
+
+## Hawkeye WWW web leftovers
+Branch `hawkeye-www/1663-openzfs-branding` @ `e07f29b` (OpenZFS Hackathon branding plus the hacker/cyberpunk restyle; commit gate passed, SonarQube clean) is left **unmerged by decision** while vote is shelved.
+
+Deferred items:
+- Full model review of the branch is owed.
+- Monospace (terminal) fonts are not self-hosted yet.
+- i18n for en/es/ar/he, including RTL.
+- Contract field renames once the updated `api/openapi.yaml` lands.
+- Event slug `hackathon-2026` change, done together with the backend.
+- Deploy to the pkg001.eu jail.
+- Merge to `main`.
